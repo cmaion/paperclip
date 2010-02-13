@@ -6,7 +6,7 @@ module Paperclip
   
   class Style
 
-    attr_reader :name, :attachment, :format
+    attr_reader :name, :attachment, :format, :order, :from
 
     # Creates a Style object. +name+ is the name of the attachment,
     # +definition+ is the style definition from has_attached_file, which
@@ -19,6 +19,8 @@ module Paperclip
         @geometry = definition.delete(:geometry)
         @format = definition.delete(:format)
         @processors = definition.delete(:processors)
+        @order = definition.delete(:order)
+        @from = definition.delete(:from)
         @other_args = definition
       else
         @geometry, @format = [definition, nil].flatten[0..1]
