@@ -12,6 +12,7 @@ module Paperclip
     # +definition+ is the style definition from has_attached_file, which
     # can be string, array or hash
     def initialize name, definition, attachment
+      definition = definition.clone # Don't touch input definition object
       @name = name
       @attachment = attachment
       if definition.is_a? Hash
