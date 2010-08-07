@@ -203,15 +203,15 @@ module Paperclip
     # in the paperclip:refresh rake task and that's it. It will regenerate all
     # thumbnails forcefully, by reobtaining the original file and going through
     # the post-process again.
-    def reprocess!
+    def reprocess!(from_original = :original)
       new_original = Tempfile.new("paperclip-reprocess")
       new_original.binmode
-      if old_original = to_file(:original)
+      if old_original = to_file(from_original)
         new_original.write( old_original.read )
         new_original.rewind
 
-        @queued_for_write = { :original => new_original }
-        post_process
+        @queued_for_write = { from_original => new_original }
+        post_process(from_original)
 
         old_original.close if old_original.respond_to?(:close)
 
@@ -278,10 +278,10 @@ module Paperclip
       [ style_options, all_options ].compact.join(" ")
     end
 
-    def post_process #:nodoc:
-      return if @queued_for_write[:original].nil?
+    def post_process(from_original = :original) #:nodoc:
+      return if @queued_for_write[from_original].nil?
       return if fire_events(:before)
-      post_process_styles
+      post_process_styles(from_original)
       return if fire_events(:after)
     end
 
@@ -294,7 +294,9 @@ module Paperclip
       instance.run_callbacks(which, @queued_for_write){|result, obj| result == false }
     end
 
-    def post_process_styles #:nodoc:
+    def post_process_styles(from_original = :original) #:nodoc:
+      styles.delete(:original)
+      styles.delete(from_original)
       styles.sort {|a,b| a[1].order <=> b[1].order}.each do |name, style|
         begin
           raise RuntimeError.new("Style #{name} has no processors defined.") if style.processors.blank?
