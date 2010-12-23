@@ -295,9 +295,9 @@ module Paperclip
     end
 
     def post_process_styles(from_original = :original) #:nodoc:
-      styles.delete(:original)
-      styles.delete(from_original)
-      styles.sort {|a,b| a[1].order <=> b[1].order}.each do |name, style|
+      styles_copy = styles.clone
+      styles_copy.delete(from_original)
+      styles_copy.sort {|a,b| a[1].order <=> b[1].order}.each do |name, style|
         begin
           raise RuntimeError.new("Style #{name} has no processors defined.") if style.processors.blank?
           @queued_for_write[name] = style.processors.inject(@queued_for_write[style.from || :original]) do |file, processor|
