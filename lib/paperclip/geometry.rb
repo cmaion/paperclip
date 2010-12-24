@@ -16,7 +16,7 @@ module Paperclip
     def self.from_file file
       file = file.path if file.respond_to? "path"
       geometry = begin
-                   Paperclip.run("identify", "-format %wx%h-%[EXIF:Orientation] :file", :file => "#{file}[0]")
+                   Paperclip.run("identify", "-format %wx%h :file", :file => "#{file}[0]")
                  rescue PaperclipCommandLineError
                    ""
                  end
@@ -26,13 +26,8 @@ module Paperclip
 
     # Parses a "WxH" formatted string, where W is the width and H is the height.
     def self.parse string
-      if match = (string && string.match(/\b(\d*)x?(\d*)\b([\>\<\#\@\%^!])?(-\d+)?/i))
-        case match[4]
-        when '-5', '-6', '-7', '-8'
-          Geometry.new(match[2], match[1], match[3])
-        else
-          Geometry.new(*match[1,3])
-        end
+      if match = (string && string.match(/\b(\d*)x?(\d*)\b([\>\<\#\@\%^!])?/i))
+        Geometry.new(*match[1,3])
       end
     end
 
