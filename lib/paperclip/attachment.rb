@@ -341,7 +341,8 @@ module Paperclip
       styles_copy.sort {|a,b| a[1].order <=> b[1].order}.each do |name, style|
         begin
           if style_args.empty? || style_args.include?(name)
-            raise RuntimeError.new("Style #{name} has no processors defined.") if style.processors.blank?
+            #raise RuntimeError.new("Style #{name} has no processors defined.") if style.processors.blank?
+            next if style.processors.blank?
             @queued_for_write[name] = style.processors.inject(@queued_for_write[style.from || :original]) do |file, processor|
               Paperclip.processor(processor).make(file, style.processor_options, self)
             end
