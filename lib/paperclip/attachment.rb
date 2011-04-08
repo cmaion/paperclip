@@ -99,7 +99,13 @@ module Paperclip
       return nil if uploaded_file.nil?
 
       @queued_for_write[:original]   = to_tempfile(uploaded_file)
-      instance_write(:file_name,       uploaded_file.original_filename.strip)
+      if RUBY_VERSION >= '1.9'
+        fname = uploaded_file.original_filename.strip
+        fname = fname.force_encoding('ISO-8859-15').encode('UTF-8') unless fname.force_encoding('UTF-8').valid_encoding?
+        instance_write(:file_name,     fname)
+      else
+        instance_write(:file_name,     uploaded_file.original_filename.strip)
+      end
       instance_write(:content_type,    uploaded_file.content_type.to_s.strip)
       instance_write(:file_size,       uploaded_file.size.to_i)
       instance_write(:fingerprint,     generate_fingerprint(uploaded_file))
