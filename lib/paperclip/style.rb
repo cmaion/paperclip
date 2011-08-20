@@ -38,6 +38,10 @@ module Paperclip
       @processors.respond_to?(:call) ? @processors.call(attachment.instance) : (@processors || attachment.processors)
     end
 
+    def format
+      @format.respond_to?(:call) ? @format.call(attachment.instance) : @format
+    end
+
     # retrieves from the attachment the whiny setting
     def whiny
       attachment.whiny
