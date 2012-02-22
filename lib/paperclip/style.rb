@@ -20,7 +20,7 @@ module Paperclip
         @format = definition.delete(:format)
         @processors = definition.delete(:processors)
         @order = definition.delete(:order)
-        @from = definition.delete(:from)
+        @from_style = definition.delete(:from)
         @other_args = definition
       else
         @geometry, @format = [definition, nil].flatten[0..1]
@@ -36,6 +36,10 @@ module Paperclip
     # if a proc has been supplied, we call it here
     def processors
       @processors.respond_to?(:call) ? @processors.call(attachment.instance) : (@processors || attachment.processors)
+    end
+
+    def from_style
+      @from_style.respond_to?(:call) ? @from_style.call(attachment.instance) : (@from_style || :original)
     end
 
     def format

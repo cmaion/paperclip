@@ -274,7 +274,7 @@ module Paperclip
     def file?
       !original_filename.blank?
     end
-    
+
     alias :present? :file?
 
     # Writes the attachment-specific attribute on the instance. For example,
@@ -351,7 +351,7 @@ module Paperclip
           if style_args.empty? || style_args.include?(name)
             #raise RuntimeError.new("Style #{name} has no processors defined.") if style.processors.blank?
             next if style.processors.blank?
-            @queued_for_write[name] = style.processors.inject(@queued_for_write[style.from || :original]) do |file, processor|
+            @queued_for_write[name] = style.processors.inject(@queued_for_write[style.from_style]) do |file, processor|
               Paperclip.processor(processor).make(file, style.processor_options, self)
             end
           end
