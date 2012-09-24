@@ -2,52 +2,61 @@ require './test/helper'
 
 class FileSystemTest < Test::Unit::TestCase
   context "Filesystem" do
-    setup do
-      rebuild_model :styles => { :thumbnail => "25x25#" }
-      @dummy = Dummy.create!
+    context "normal file" do
+      setup do
+        rebuild_model :styles => { :thumbnail => "25x25#" }
+        @dummy = Dummy.create!
 
-      @dummy.avatar = File.open(fixture_file('5k.png'))
+        @file = File.open(fixture_file('5k.png'))
+        @dummy.avatar = @file
+      end
+
+      teardown { @file.close }
+
+      should "allow file assignment" do
+        assert @dummy.save
+      end
+
+      should "store the original" do
+        @dummy.save
+        assert_file_exists(@dummy.avatar.path)
+      end
+
+      should "store the thumbnail" do
+        @dummy.save
+        assert_file_exists(@dummy.avatar.path(:thumbnail))
+      end
+
+      should "be rewinded after flush_writes" do
+        @dummy.avatar.instance_eval "def after_flush_writes; end"
+
+        files = @dummy.avatar.queued_for_write.values
+        @dummy.save
+        assert files.none?(&:eof?), "Expect all the files to be rewinded."
+      end
+
+      should "be removed after after_flush_writes" do
+        paths = @dummy.avatar.queued_for_write.values.map(&:path)
+        @dummy.save
+        assert paths.none?{ |path| File.exists?(path) },
+          "Expect all the files to be deleted."
+      end
     end
 
-    should "allow file assignment" do
-      assert @dummy.save
-    end
-
-    should "store the original" do
-      @dummy.save
-      assert File.exists?(@dummy.avatar.path)
-    end
-
-    should "store the thumbnail" do
-      @dummy.save
-      assert File.exists?(@dummy.avatar.path(:thumbnail))
-    end
-
-    should "clean up file objects" do
-      File.stubs(:exist?).returns(true)
-      Paperclip::Tempfile.any_instance.expects(:close).at_least_once()
-      Paperclip::Tempfile.any_instance.expects(:unlink).at_least_once()
-
-      @dummy.save!
-    end
-
-    should "always be rewound when returning from #to_file" do
-      assert_equal 0, @dummy.avatar.to_file.pos
-      @dummy.avatar.to_file.seek(10)
-      assert_equal 0, @dummy.avatar.to_file.pos
-    end
-        
     context "with file that has space in file name" do
       setup do
         rebuild_model :styles => { :thumbnail => "25x25#" }
         @dummy = Dummy.create!
 
-        @dummy.avatar = File.open(fixture_file('spaced file.png'))
+        @file = File.open(fixture_file('spaced file.png'))
+        @dummy.avatar = @file
         @dummy.save
       end
 
+      teardown { @file.close }
+
       should "store the file" do
-        assert File.exists?(@dummy.avatar.path)
+        assert_file_exists(@dummy.avatar.path)
       end
 
       should "return a replaced version for path" do

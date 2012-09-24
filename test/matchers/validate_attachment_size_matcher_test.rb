@@ -34,7 +34,7 @@ class ValidateAttachmentSizeMatcherTest < Test::Unit::TestCase
       end
     end
 
-    context "validates_attachment_size with infinite range" do
+    context "allowing anything" do
       setup{ @matcher = self.class.validate_attachment_size(:avatar) }
 
       context "given a class with an upper limit" do
@@ -42,7 +42,7 @@ class ValidateAttachmentSizeMatcherTest < Test::Unit::TestCase
         should_accept_dummy_class
       end
 
-      context "given a class with no upper limit" do
+      context "given a class with a lower limit" do
         setup { @dummy_class.validates_attachment_size :avatar, :greater_than => 1 }
         should_accept_dummy_class
       end
@@ -66,6 +66,20 @@ class ValidateAttachmentSizeMatcherTest < Test::Unit::TestCase
       should "not run the validation if the control is false" do
         @dummy.go = false
         assert_rejects @matcher, @dummy
+      end
+    end
+
+    context "post processing" do
+      setup do
+        @dummy_class.validates_attachment_size :avatar, :greater_than => 1024
+
+        @dummy = @dummy_class.new
+        @matcher = self.class.validate_attachment_size(:avatar).greater_than(1024)
+      end
+
+      should "be skipped" do
+        @dummy.avatar.expects(:post_process).never
+        assert_accepts @matcher, @dummy
       end
     end
   end

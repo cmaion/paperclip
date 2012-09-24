@@ -18,7 +18,6 @@ module Paperclip
       class ValidateAttachmentSizeMatcher
         def initialize attachment_name
           @attachment_name = attachment_name
-          @low, @high = 0, (1.0/0)
         end
 
         def less_than size
@@ -67,27 +66,28 @@ module Paperclip
           override_method(file, :size){ new_size }
           override_method(file, :to_tempfile){ file }
 
+          @subject.send(@attachment_name).post_processing = false
           @subject.send(@attachment_name).assign(file)
           @subject.valid?
           @subject.errors[:"#{@attachment_name}_file_size"].blank?
+        ensure
+          @subject.send(@attachment_name).post_processing = true
         end
 
         def lower_than_low?
-          not passes_validation_with_size(@low - 1)
+          @low.nil? || !passes_validation_with_size(@low - 1)
         end
 
         def higher_than_low?
-          passes_validation_with_size(@low + 1)
+          @low.nil? || passes_validation_with_size(@low + 1)
         end
 
         def lower_than_high?
-          return true if @high == (1.0/0)
-          passes_validation_with_size(@high - 1)
+          @high.nil? || @high == Float::INFINITY || passes_validation_with_size(@high - 1)
         end
 
         def higher_than_high?
-          return true if @high == (1.0/0)
-          not passes_validation_with_size(@high + 1)
+          @high.nil? || @high == Float::INFINITY || !passes_validation_with_size(@high + 1)
         end
       end
     end
