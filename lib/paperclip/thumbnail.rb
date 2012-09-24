@@ -45,6 +45,8 @@ module Paperclip
 
       @current_format      = File.extname(@file.path)
       @basename            = File.basename(@file.path, @current_format)
+      @original_format     = File.extname(@attachment.original_filename)
+      @original_basename   = File.basename(@attachment.original_filename, @original_format)
     end
 
     # Returns true if the +target_geometry+ is meant to crop.
@@ -61,7 +63,7 @@ module Paperclip
     # that contains the new image.
     def make
       src = @file
-      dst = Tempfile.new([@basename, @format ? ".#{@format}" : ''])
+      dst = Tempfile.new([@original_basename, @format ? ".#{@format}" : ''])
       dst.binmode
 
       begin
