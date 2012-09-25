@@ -5,12 +5,17 @@ module Paperclip
       cache_current_values
     end
 
+    def unlink
+      # Do nothing, we have not copied @target to @tempfile
+    end
+
     private
 
     def cache_current_values
       @original_filename = @target.original_filename if @target.respond_to?(:original_filename)
       @original_filename ||= File.basename(@target.path)
-      @tempfile = copy_to_tempfile(@target)
+      #@tempfile = copy_to_tempfile(@target)
+      @tempfile = @target
       @content_type = ContentTypeDetector.new(@target.path).detect
       @size = File.size(@target)
     end

@@ -17,6 +17,10 @@ module Paperclip
       "#{self.class}: #{self.original_filename}"
     end
 
+    def move_on_flush_write?
+      @tempfile.is_a?(Tempfile)
+    end
+
     private
 
     def destination

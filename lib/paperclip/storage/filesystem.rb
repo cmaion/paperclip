@@ -30,9 +30,13 @@ module Paperclip
       def flush_writes #:nodoc:
         @queued_for_write.each do |style_name, file|
           FileUtils.mkdir_p(File.dirname(path(style_name)))
-          File.open(path(style_name), "wb") do |new_file|
-            while chunk = file.read(16 * 1024)
-              new_file.write(chunk)
+          if file.move_on_flush_write?
+            FileUtils.mv(file.path, path(style_name))
+          else
+            File.open(path(style_name), "wb") do |new_file|
+              while chunk = file.read(16 * 1024)
+                new_file.write(chunk)
+              end
             end
           end
           FileUtils.chmod(0666&~File.umask, path(style_name))

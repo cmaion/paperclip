@@ -5,10 +5,16 @@ module Paperclip
       cache_current_values
 
       if @target.respond_to?(:tempfile)
-        @tempfile = copy_to_tempfile(@target.tempfile)
+        #@tempfile = copy_to_tempfile(@target.tempfile)
+        @tempfile = @target.tempfile
       else
-        @tempfile = copy_to_tempfile(@target)
+        #@tempfile = copy_to_tempfile(@target)
+        @tempfile = @target
       end
+    end
+
+    def move_on_flush_write?
+      true
     end
 
     private
