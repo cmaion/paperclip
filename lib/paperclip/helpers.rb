@@ -17,16 +17,18 @@ module Paperclip
     #   :expected_outcodes -> An array of integers that defines the expected exit codes
     #                         of the binary. Defaults to [0].
     #
-    #   :log_command -> Log the command being run when set to true (defaults to false).
+    #   :log_command -> Log the command being run when set to true (defaults to true).
     #                   This will only log if logging in general is set to true as well.
     #
     #   :swallow_stderr -> Set to true if you don't care what happens on STDERR.
     #
-    def run(cmd, arguments = "", local_options = {})
+    def run(cmd, arguments = "", interpolation_values = {}, local_options = {})
       command_path = options[:command_path]
-      Cocaine::CommandLine.path = ( Cocaine::CommandLine.path ? [Cocaine::CommandLine.path].flatten | [command_path] : command_path )
-      local_options = local_options.merge(:logger => logger) if logging? && (options[:log_command] || local_options[:log_command])
-      Cocaine::CommandLine.new(cmd, arguments, local_options).run
+      Cocaine::CommandLine.path = [Cocaine::CommandLine.path, command_path].flatten.compact.uniq
+      if logging? && (options[:log_command] || local_options[:log_command])
+        local_options = local_options.merge(:logger => logger)
+      end
+      Cocaine::CommandLine.new(cmd, arguments, local_options).run(interpolation_values)
     end
 
     # Find all instances of the given Active Record model +klass+ with attachment +name+.
@@ -39,17 +41,21 @@ module Paperclip
 
     def class_for(class_name)
       class_name.split('::').inject(Object) do |klass, partial_class_name|
-        klass.const_defined?(partial_class_name) ? klass.const_get(partial_class_name, false) : klass.const_missing(partial_class_name)
+        if klass.const_defined?(partial_class_name)
+          klass.const_get(partial_class_name, false)
+        else
+          klass.const_missing(partial_class_name)
+        end
       end
     end
 
-    def check_for_url_clash(name,url,klass)
-      @names_url ||= {}
-      default_url = url || Attachment.default_options[:url]
-      if @names_url[name] && @names_url[name][:url] == default_url && @names_url[name][:class] != klass && @names_url[name][:url] !~ /:class/
-        log("Duplicate URL for #{name} with #{default_url}. This will clash with attachment defined in #{@names_url[name][:class]} class")
+    def check_for_path_clash(name,path,klass)
+      @names_path ||= {}
+      default_path = path || Attachment.default_options[:path]
+      if @names_path[name] && @names_path[name][:path] == default_path && @names_path[name][:class] != klass && @names_path[name][:path] !~ /:class/
+        log("Duplicate path for #{name} with #{default_path}. This will clash with attachment defined in #{@names_path[name][:class]} class")
       end
-      @names_url[name] = {:url => default_url, :class => klass}
+      @names_path[name] = {:path => default_path, :class => klass}
     end
 
     def reset_duplicate_clash_check!

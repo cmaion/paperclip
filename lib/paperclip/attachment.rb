@@ -12,6 +12,7 @@ module Paperclip
         :convert_options       => {},
         :default_style         => :original,
         :default_url           => "/:attachment/:style/missing.png",
+        :escape_url            => true,
         :restricted_characters => /[&$+,\/:;=?@<>\[\]\{\}\|\\\^~%# ]/,
         :hash_data             => ":class/:attachment/:id/:style/:updated_at",
         :hash_digest           => "SHA1",
@@ -46,7 +47,7 @@ module Paperclip
     # +styles+ - a hash of options for processing the attachment. See +has_attached_file+ for the details
     # +only_process+ - style args to be run through the post-processor. This defaults to the empty list
     # +default_url+ - a URL for the missing image
-    # +default_style+ - the style to use when don't specify an argument to e.g. #url, #path
+    # +default_style+ - the style to use when an argument is not specified e.g. #url, #path
     # +storage+ - the storage mechanism. Defaults to :filesystem
     # +use_timestamp+ - whether to append an anti-caching timestamp to image URLs. Defaults to true
     # +whiny+, +whiny_thumbnails+ - whether to raise when thumbnailing fails
@@ -57,9 +58,10 @@ module Paperclip
     # +convert_options+ - flags passed to the +convert+ command for processing
     # +source_file_options+ - flags passed to the +convert+ command that controls how the file is read
     # +processors+ - classes that transform the attachment. Defaults to [:thumbnail]
-    # +preserve_files+ - whether to keep files on the filesystem when deleting to clearing the attachment. Defaults to false
+    # +preserve_files+ - whether to keep files on the filesystem when deleting or clearing the attachment. Defaults to false
     # +interpolator+ - the object used to interpolate filenames and URLs. Defaults to Paperclip::Interpolations
     # +url_generator+ - the object used to generate URLs, using the interpolator. Defaults to Paperclip::UrlGenerator
+    # +escape_url+ - Perform URI escaping to URLs. Defaults to true
     def initialize(name, instance, options = {})
       @name              = name
       @instance          = instance
@@ -90,8 +92,7 @@ module Paperclip
       ensure_required_accessors!
       file = Paperclip.io_adapters.for(uploaded_file)
 
-      @options[:only_process].map!(&:to_sym)
-      self.clear(*@options[:only_process])
+      self.clear(*only_process)
       return nil if file.nil?
 
       @queued_for_write[:original]   = file
@@ -104,7 +105,7 @@ module Paperclip
 
       @dirty = true
 
-      post_process(:original, *@options[:only_process]) if post_processing
+      post_process(:original, *only_process) if post_processing && valid_assignment?
 
       # Reset the file size if the original file was reprocessed.
       instance_write(:file_size,   @queued_for_write[:original].size)
@@ -134,7 +135,7 @@ module Paperclip
     # +#new(Paperclip::Attachment, options_hash)+
     # +#for(style_name, options_hash)+
     def url(style_name = default_style, options = {})
-      default_options = {:timestamp => @options[:use_timestamp], :escape => true}
+      default_options = {:timestamp => @options[:use_timestamp], :escape => @options[:escape_url]}
 
       if options == true || options == false # Backwards compatibility.
         @url_generator.for(style_name, default_options.merge(:timestamp => options))
@@ -157,6 +158,10 @@ module Paperclip
       url(style_name)
     end
 
+    def as_json(options = nil)
+      to_s((options && options[:style]) || default_style)
+    end
+
     def default_style
       @options[:default_style]
     end
@@ -167,11 +172,17 @@ module Paperclip
         styles = styles.call(self) if styles.respond_to?(:call)
 
         @normalized_styles = styles.dup
-        @normalized_styles.each_pair do |name, options|
+        styles.each_pair do |name, options|
           @normalized_styles[name.to_sym] = Paperclip::Style.new(name.to_sym, options.dup, self)
         end
       end
       @normalized_styles
+    end
+
+    def only_process
+      only_process = @options[:only_process].dup
+      only_process = only_process.call(self) if only_process.respond_to?(:call)
+      only_process.map(&:to_sym)
     end
 
     def processors
@@ -244,7 +255,7 @@ module Paperclip
     end
 
     # Returns the fingerprint of the file, if one's defined. The fingerprint is
-    # stored in the <attachment>_fingerpring attribute of the model.
+    # stored in the <attachment>_fingerprint attribute of the model.
     def fingerprint
       instance_read(:fingerprint)
     end
@@ -311,6 +322,10 @@ module Paperclip
 
     alias :present? :file?
 
+    def blank?
+      not present?
+    end
+
     # Determines whether the instance responds to this attribute. Used to prevent
     # calculations on fields we won't even store.
     def instance_respond_to?(attr)
@@ -354,8 +369,14 @@ module Paperclip
       Paperclip.log(message)
     end
 
-    def valid_assignment? file #:nodoc:
-      file.nil? || (file.respond_to?(:original_filename) && file.respond_to?(:content_type))
+    def valid_assignment? #:nodoc:
+      if instance.valid?
+        true
+      else
+        instance.errors.none? do |attr, message|
+          attr.to_s.start_with?(@name.to_s)
+        end
+      end
     end
 
     def initialize_storage #:nodoc:
