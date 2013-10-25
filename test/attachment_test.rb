@@ -201,7 +201,10 @@ class AttachmentTest < Test::Unit::TestCase
     dummy = Dummy.new
     dummy.id = 1234
     dummy.avatar_file_name = "fake.jpg"
-    expected_string = '{"dummy":{"avatar":"/system/dummies/avatars/000/001/234/original/fake.jpg"}}'
+    expected_string = '{"avatar":"/system/dummies/avatars/000/001/234/original/fake.jpg"}'
+    if ActiveRecord::Base.include_root_in_json # This is true by default in Rails 3, and false in 4
+      expected_string = %({"dummy":#{expected_string}})
+    end
     # active_model pre-3.2 checks only by calling any? on it, thus it doesn't work if it is empty
     assert_equal expected_string, dummy.to_json(:only => [:dummy_key_for_old_active_model], :methods => [:avatar])
   end
@@ -916,6 +919,41 @@ class AttachmentTest < Test::Unit::TestCase
         end
       end
     end
+
+    context 'with specified cleaner' do
+      setup do
+        @old_defaults = Paperclip::Attachment.default_options.dup
+      end
+
+      teardown do
+        Paperclip::Attachment.default_options.merge! @old_defaults
+      end
+
+      should 'call the given proc and take the result as cleaned filename' do
+        Paperclip::Attachment.default_options[:filename_cleaner] = lambda do |str|
+          "from_proc_#{str}"
+        end
+
+        @file.stubs(:original_filename).returns("goood.png")
+        @dummy = Dummy.new
+        @dummy.avatar = @file
+        assert_equal "from_proc_goood.png", @dummy.avatar.original_filename
+      end
+
+      should 'call the given object and take the result as the cleaned filename' do
+        class MyCleaner
+          def call(filename)
+            "foo"
+          end
+        end
+        Paperclip::Attachment.default_options[:filename_cleaner] = MyCleaner.new
+
+        @file.stubs(:original_filename).returns("goood.png")
+        @dummy = Dummy.new
+        @dummy.avatar = @file
+        assert_equal "foo", @dummy.avatar.original_filename
+      end
+    end
   end
 
   context "Attachment with uppercase extension and a default style" do
@@ -953,6 +991,10 @@ class AttachmentTest < Test::Unit::TestCase
       assert_match @attachment.to_s, @attachment.url
       assert_match @attachment.to_s(:small), @attachment.url(:small)
     end
+
+    should "have matching expiring_url and url methods when using the filesystem storage" do
+      assert_match @attachment.expiring_url, @attachment.url
+    end
   end
 
   context "An attachment" do
@@ -979,6 +1021,20 @@ class AttachmentTest < Test::Unit::TestCase
       assert_raises(Paperclip::Error) do
         @other_attachment.assign(@file)
       end
+    end
+
+    should 'clear out the previous assignment when assigned nil' do
+      @attachment.assign(@file)
+      original_file = @attachment.queued_for_write[:original]
+      @attachment.assign(nil)
+      assert_nil @attachment.queued_for_write[:original]
+    end
+
+    should 'not do anything when it is assigned an empty string' do
+      @attachment.assign(@file)
+      original_file = @attachment.queued_for_write[:original]
+      @attachment.assign("")
+      assert_equal original_file, @attachment.queued_for_write[:original]
     end
 
     should "return nil as path when no file assigned" do
@@ -1207,6 +1263,13 @@ class AttachmentTest < Test::Unit::TestCase
         assert_equal creation.to_i, @dummy.avatar.created_at
         assert_not_equal now.to_i, @dummy.avatar.created_at
       end
+
+      should "set changed? to true on attachment assignment" do
+        @dummy.avatar = @file
+        @dummy.save!
+        @dummy.avatar = @file
+        assert @dummy.changed?
+      end
     end
 
     context "and avatar_updated_at column" do
@@ -1315,6 +1378,12 @@ class AttachmentTest < Test::Unit::TestCase
     should "not delete the files from storage when attachment is destroyed" do
       @attachment.destroy
       assert_file_exists(@path)
+    end
+
+    should "clear out attachment data when attachment is destroyed" do
+      @attachment.destroy
+      assert !@attachment.exists?
+      assert_nil @dummy.avatar_file_name
     end
 
     should "not delete the file when model is destroyed" do

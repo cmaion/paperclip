@@ -107,45 +107,6 @@ class PaperclipTest < Test::Unit::TestCase
     end
   end
 
-  context "Attachments with clashing URLs should raise error" do
-    setup do
-      class Dummy2 < ActiveRecord::Base
-        include Paperclip::Glue
-      end
-    end
-
-    should "generate warning if attachment is redefined with the same path string" do
-      expected_log_msg = "Duplicate path for blah with /system/:id/:style/:filename. This will clash with attachment defined in Dummy class"
-      Paperclip.expects(:log).with(expected_log_msg)
-      Dummy.class_eval do
-        has_attached_file :blah, :path => '/system/:id/:style/:filename'
-      end
-      Dummy2.class_eval do
-        has_attached_file :blah, :path => '/system/:id/:style/:filename'
-      end
-    end
-
-    should "not generate warning if attachment is redefined with the same path string but has :class in it" do
-      Paperclip.expects(:log).never
-      Dummy.class_eval do
-        has_attached_file :blah, :path => "/system/:class/:attachment/:id/:style/:filename"
-      end
-      Dummy2.class_eval do
-        has_attached_file :blah, :path => "/system/:class/:attachment/:id/:style/:filename"
-      end
-    end
-
-    should "not generate warning if attachment is defined with the same URL string" do
-      Paperclip.expects(:log).never
-      Dummy.class_eval do
-        has_attached_file :blah, :path => "/system/:class/:attachment/:id/:style/:filename", :url => ":s3_alias_url"
-      end
-      Dummy2.class_eval do
-        has_attached_file :blah, :path => "/system/:class/:attachment/:id/:style/:filename", :url => ":s3_alias_url"
-      end
-    end
-  end
-
   context "An ActiveRecord model with an 'avatar' attachment" do
     setup do
       rebuild_model :path => "tmp/:class/omg/:style.:extension"
@@ -162,28 +123,30 @@ class PaperclipTest < Test::Unit::TestCase
       end
     end
 
-    context "that is attr_protected" do
-      setup do
-        Dummy.class_eval do
-          attr_protected :avatar
+    if using_protected_attributes?
+      context "that is attr_protected" do
+        setup do
+          Dummy.class_eval do
+            attr_protected :avatar
+          end
+          @dummy = Dummy.new
         end
-        @dummy = Dummy.new
-      end
 
-      should "not assign the avatar on mass-set" do
-        @dummy.attributes = { :other => "I'm set!",
-                              :avatar => @file }
+        should "not assign the avatar on mass-set" do
+          @dummy.attributes = { :other => "I'm set!",
+                                :avatar => @file }
 
-        assert_equal "I'm set!", @dummy.other
-        assert ! @dummy.avatar?
-      end
+          assert_equal "I'm set!", @dummy.other
+          assert ! @dummy.avatar?
+        end
 
-      should "still allow assigment on normal set" do
-        @dummy.other  = "I'm set!"
-        @dummy.avatar = @file
+        should "still allow assigment on normal set" do
+          @dummy.other  = "I'm set!"
+          @dummy.avatar = @file
 
-        assert_equal "I'm set!", @dummy.other
-        assert @dummy.avatar?
+          assert_equal "I'm set!", @dummy.other
+          assert @dummy.avatar?
+        end
       end
     end
 
@@ -196,11 +159,6 @@ class PaperclipTest < Test::Unit::TestCase
         assert_nothing_raised do
           @subdummy = SubDummy.create(:avatar => @file)
         end
-      end
-
-      should "be able to see the attachment definition from the subclass's class" do
-        assert_equal "tmp/:class/omg/:style.:extension",
-                     SubDummy.attachment_definitions[:avatar][:path]
       end
 
       teardown do

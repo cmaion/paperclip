@@ -35,11 +35,11 @@ require 'paperclip/geometry'
 require 'paperclip/processor'
 require 'paperclip/tempfile'
 require 'paperclip/thumbnail'
+require 'paperclip/interpolations/plural_cache'
 require 'paperclip/interpolations'
 require 'paperclip/tempfile_factory'
 require 'paperclip/style'
 require 'paperclip/attachment'
-require 'paperclip/attachment_options'
 require 'paperclip/storage'
 require 'paperclip/callbacks'
 require 'paperclip/file_command_content_type_detector'
@@ -48,9 +48,11 @@ require 'paperclip/glue'
 require 'paperclip/errors'
 require 'paperclip/missing_attachment_styles'
 require 'paperclip/validators'
-require 'paperclip/instance_methods'
 require 'paperclip/logger'
 require 'paperclip/helpers'
+require 'paperclip/has_attached_file'
+require 'paperclip/attachment_registry'
+require 'paperclip/filename_cleaner'
 require 'mime/types'
 require 'logger'
 require 'cocaine'
@@ -172,47 +174,7 @@ module Paperclip
     #     end
     #   end
     def has_attached_file(name, options = {})
-      include InstanceMethods
-
-      if attachment_definitions.nil?
-        self.attachment_definitions = {}
-      else
-        self.attachment_definitions = self.attachment_definitions.dup
-      end
-
-      attachment_definitions[name] = Paperclip::AttachmentOptions.new(options)
-      Paperclip.classes_with_attachments << self.name
-      Paperclip.check_for_path_clash(name,attachment_definitions[name][:path],self.name)
-
-      after_save :save_attached_files
-      before_destroy :prepare_for_destroy
-      after_destroy :destroy_attached_files
-
-      define_paperclip_callbacks :post_process, :"#{name}_post_process"
-
-      define_method name do |*args|
-        a = attachment_for(name)
-        (args.length > 0) ? a.to_s(args.first) : a
-      end
-
-      define_method "#{name}=" do |file|
-        attachment_for(name).assign(file)
-      end
-
-      define_method "#{name}?" do
-        attachment_for(name).file?
-      end
-
-      validates_each(name) do |record, attr, value|
-        attachment = record.attachment_for(name)
-        attachment.send(:flush_errors)
-      end
-    end
-
-    # Returns the attachment definitions defined by each call to
-    # has_attached_file.
-    def attachment_definitions
-      self.attachment_definitions
+      HasAttachedFile.define_on(self, name, options)
     end
   end
 end
@@ -220,10 +182,13 @@ end
 # This stuff needs to be run after Paperclip is defined.
 require 'paperclip/io_adapters/registry'
 require 'paperclip/io_adapters/abstract_adapter'
+require 'paperclip/io_adapters/empty_string_adapter'
 require 'paperclip/io_adapters/identity_adapter'
 require 'paperclip/io_adapters/file_adapter'
 require 'paperclip/io_adapters/stringio_adapter'
+require 'paperclip/io_adapters/data_uri_adapter'
 require 'paperclip/io_adapters/nil_adapter'
 require 'paperclip/io_adapters/attachment_adapter'
 require 'paperclip/io_adapters/uploaded_file_adapter'
 require 'paperclip/io_adapters/uri_adapter'
+require 'paperclip/io_adapters/http_url_proxy_adapter'

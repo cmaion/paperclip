@@ -1,7 +1,7 @@
 Paperclip
 =========
 
-[![Build Status](https://secure.travis-ci.org/thoughtbot/paperclip.png?branch=master)](http://travis-ci.org/thoughtbot/paperclip) [![Dependency Status](https://gemnasium.com/thoughtbot/paperclip.png?travis)](https://gemnasium.com/thoughtbot/paperclip) [![Code Climate](https://codeclimate.com/badge.png)](https://codeclimate.com/github/thoughtbot/paperclip)
+[![Build Status](https://secure.travis-ci.org/thoughtbot/paperclip.png?branch=master)](http://travis-ci.org/thoughtbot/paperclip) [![Dependency Status](https://gemnasium.com/thoughtbot/paperclip.png?travis)](https://gemnasium.com/thoughtbot/paperclip) [![Code Climate](https://codeclimate.com/github/thoughtbot/paperclip.png)](https://codeclimate.com/github/thoughtbot/paperclip)
 
 Paperclip is intended as an easy file attachment library for Active Record. The
 intent behind it was to keep setup as easy as possible and to treat files as
@@ -101,7 +101,7 @@ In your model:
 ```ruby
 class User < ActiveRecord::Base
   attr_accessible :avatar
-  has_attached_file :avatar, :styles => { :medium => "300x300>", :thumb => "100x100>" }
+  has_attached_file :avatar, :styles => { :medium => "300x300>", :thumb => "100x100>" }, :default_url => "/images/:style/missing.png"
 end
 ```
 
@@ -174,6 +174,9 @@ validation.
 More information about the options to `has_attached_file` is available in the
 documentation of [`Paperclip::ClassMethods`](http://rubydoc.info/gems/paperclip/Paperclip/ClassMethods).
 
+Validations
+-----------
+
 For validations, Paperclip introduces several validators to validate your attachment:
 
 * `AttachmentContentTypeValidator`
@@ -207,11 +210,54 @@ validates_attachment :avatar, :presence => true,
   :size => { :in => 0..10.kilobytes }
 ```
 
+_NOTE: Post processing will not even *start* if the attachment is not valid
+according to the validations. Your callbacks and processors will *only* be
+called with valid attachments._
+
+```ruby
+class Message < ActiveRecord::Base
+  has_attached_file :asset, styles: {thumb: "100x100#"}
+
+  before_post_process :skip_for_audio
+
+  def skip_for_audio
+    ! %w(audio/ogg application/ogg).include?(asset_content_type)
+  end
+end
+```
+
+If you have other validations that depend on assignment order, the recommended
+course of action is to prevent the assignment of the attachment until
+afterwards, then assign manually:
+
+```ruby
+class Book < ActiveRecord::Base
+  has_attached_file :document, styles: {thumbnail: "60x60#"}
+  validates_attachment :document, content_type: { content_type: "application/pdf" }
+  validates_something_else # Other validations that conflict with Paperclip's
+end
+
+class BooksController < ApplicationController
+  def create
+    @book = Book.new(book_params)
+    @book.document = params[:book][:document]
+    @book.save
+    respond_with @book
+  end
+
+  private
+
+  def book_params
+    params.require(:book).permit(:title, :author)
+  end
+end
+```
+
 Defaults
 --------
 Global defaults for all your paperclip attachments can be defined by changing the Paperclip::Attachment.default_options Hash, this can be useful for setting your default storage settings per example so you won't have to define them in every has_attached_file definition.
 
-If you're using Rails you can define a Hash with default options in config/application.rb or in any of the config/environments/*.rb files on config.paperclip_defaults, these well get merged into Paperclip::Attachment.default_options as your Rails app boots. An example:
+If you're using Rails you can define a Hash with default options in config/application.rb or in any of the config/environments/*.rb files on config.paperclip_defaults, these will get merged into Paperclip::Attachment.default_options as your Rails app boots. An example:
 
 ```ruby
 module YourApp
@@ -327,7 +373,7 @@ You may also choose to store your files using Amazon's S3 service. To do so, inc
 the `aws-sdk` gem in your Gemfile:
 
 ```ruby
-gem 'aws-sdk', '~> 1.3.4'
+gem 'aws-sdk', '~> 1.5.7'
 ```
 
 And then you can specify using S3 from `has_attached_file`.
@@ -532,6 +578,20 @@ class User < ActiveRecord::Base
 end
 ```
 
+Logging
+----------
+
+By default Paperclip outputs logging according to your logger level. If you want to disable logging (e.g. during testing) add this in to your environment's configuration:
+```ruby
+Your::Application.configure do
+...
+  Paperclip.options[:log] = false
+...
+end
+```
+
+More information in the [rdocs](http://rdoc.info/github/thoughtbot/paperclip/Paperclip.options)
+
 Deployment
 ----------
 
@@ -597,6 +657,25 @@ Paperclip provides rspec-compatible matchers for testing attachments. See the
 documentation on [Paperclip::Shoulda::Matchers](http://rubydoc.info/gems/paperclip/Paperclip/Shoulda/Matchers)
 for more information.
 
+**Parallel Tests**
+
+Because of the default `path` for Paperclip storage, if you try to run tests in
+parallel, you may find that files get overwritten because the same path is being
+calculated for them in each test process. While this fix works for
+parallel_tests, a similar concept should be used for any other mechanism for
+running tests concurrently.
+
+```ruby
+if ENV['PARALLEL_TEST_GROUPS']
+  Paperclip::Attachment.default_options[:path] = ":rails_root/public/system/:rails_env/#{ENV['TEST_ENV_NUMBER'].to_i}/:class/:attachment/:id_partition/:filename"
+else
+  Paperclip::Attachment.default_options[:path] = ":rails_root/public/system/:rails_env/:class/:attachment/:id_partition/:filename"
+end
+```
+
+The important part here being the inclusion of `ENV['TEST_ENV_NUMBER']`, or the
+similar mechanism for whichever parallel testing library you use.
+
 Contributing
 ------------
 
@@ -615,7 +694,7 @@ Please see `CONTRIBUTING.md` for more details on contributing and running test.
 Credits
 -------
 
-![thoughtbot](http://thoughtbot.com/images/tm/logo.png)
+![thoughtbot](http://thoughtbot.com/logo.png)
 
 Paperclip is maintained and funded by [thoughtbot, inc](http://thoughtbot.com/community)
 
@@ -626,5 +705,5 @@ The names and logos for thoughtbot are trademarks of thoughtbot, inc.
 License
 -------
 
-Paperclip is Copyright © 2008-2012 thoughtbot. It is free software, and may be
+Paperclip is Copyright © 2008-2013 thoughtbot, inc. It is free software, and may be
 redistributed under the terms specified in the MIT-LICENSE file.

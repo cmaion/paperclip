@@ -2,19 +2,23 @@ require 'rubygems'
 require 'tempfile'
 require 'pathname'
 require 'test/unit'
-
-require 'shoulda'
-require 'mocha'
-require 'bourne'
-
 require 'active_record'
 require 'active_record/version'
 require 'active_support'
 require 'active_support/core_ext'
+require 'shoulda'
+require 'mocha/setup'
+require 'bourne'
+require 'shoulda/context'
 require 'mime/types'
 require 'pathname'
 require 'ostruct'
-require 'pry'
+
+begin
+  require 'pry'
+rescue LoadError
+  # Pry is not available, just ignore.
+end
 
 puts "Testing against version #{ActiveRecord::VERSION::STRING}"
 
@@ -48,9 +52,13 @@ require './shoulda_macros/paperclip'
 
 FIXTURES_DIR = File.join(File.dirname(__FILE__), "fixtures")
 config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
-ActiveRecord::Base.logger = ActiveSupport::BufferedLogger.new(File.dirname(__FILE__) + "/debug.log")
+ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
 ActiveRecord::Base.establish_connection(config['test'])
 Paperclip.options[:logger] = ActiveRecord::Base.logger
+
+def using_protected_attributes?
+  ActiveRecord::VERSION::MAJOR < 4
+end
 
 def require_everything_in_directory(directory_name)
   Dir[File.join(File.dirname(__FILE__), directory_name, '*')].each do |f|
@@ -196,4 +204,12 @@ end
 
 def assert_file_not_exists(path)
   assert !File.exists?(path), %(Expect "#{path}" to not exists.)
+end
+
+def assert_frame_dimensions(range, frames)
+  frames.each_with_index do |frame, frame_index|
+    frame.split('x').each_with_index do |dimension, dimension_index |
+      assert range.include?(dimension.to_i), "Frame #{frame_index}[#{dimension_index}] should have been within #{range.inspect}, but was #{dimension}"
+    end
+  end
 end

@@ -7,6 +7,7 @@ module Paperclip
       end
 
       def validate_each(record, attribute, value)
+        base_attribute = attribute.to_sym
         attribute = "#{attribute}_content_type".to_sym
         value = record.send :read_attribute_for_validation, attribute
 
@@ -14,6 +15,12 @@ module Paperclip
 
         validate_whitelist(record, attribute, value)
         validate_blacklist(record, attribute, value)
+
+        if record.errors.include? attribute
+          record.errors[attribute].each do |error|
+            record.errors.add base_attribute, error
+          end
+        end
       end
 
       def validate_whitelist(record, attribute, value)
@@ -48,7 +55,7 @@ module Paperclip
     end
 
     module HelperMethods
-      # Places ActiveRecord-style validations on the content type of the file
+      # Places ActiveModel validations on the content type of the file
       # assigned. The possible options are:
       # * +content_type+: Allowed content types.  Can be a single content type
       #   or an array.  Each type can be a String or a Regexp. It should be
@@ -68,7 +75,9 @@ module Paperclip
       # You'll still need to have a virtual attribute (created by +attr_accessor+)
       # name +[attachment]_content_type+ to be able to use this validator.
       def validates_attachment_content_type(*attr_names)
-        validates_with AttachmentContentTypeValidator, _merge_attributes(attr_names)
+        options = _merge_attributes(attr_names)
+        validates_with AttachmentContentTypeValidator, options.dup
+        validate_before_processing AttachmentContentTypeValidator, options.dup
       end
     end
   end

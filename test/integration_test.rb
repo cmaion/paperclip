@@ -207,70 +207,6 @@ class IntegrationTest < Test::Unit::TestCase
     end
   end
 
-  context "A model with no convert_options setting" do
-    setup do
-      rebuild_model :styles => { :large => "300x300>",
-                                 :medium => "100x100",
-                                 :thumb => ["32x32#", :gif] },
-                    :default_style => :medium,
-                    :url => "/:attachment/:class/:style/:id/:basename.:extension",
-                    :path => ":rails_root/tmp/:attachment/:class/:style/:id/:basename.:extension"
-      @dummy     = Dummy.new
-    end
-
-    should "have its definition return nil when asked about convert_options" do
-      assert ! Dummy.attachment_definitions[:avatar][:convert_options]
-    end
-
-    context "redefined to have convert_options setting" do
-      setup do
-        rebuild_model :styles => { :large => "300x300>",
-                                   :medium => "100x100",
-                                   :thumb => ["32x32#", :gif] },
-                      :convert_options => "-strip -depth 8",
-                      :default_style => :medium,
-                      :url => "/:attachment/:class/:style/:id/:basename.:extension",
-                      :path => ":rails_root/tmp/:attachment/:class/:style/:id/:basename.:extension"
-      end
-
-      should "have its definition return convert_options value when asked about convert_options" do
-        assert_equal "-strip -depth 8", Dummy.attachment_definitions[:avatar][:convert_options]
-      end
-    end
-  end
-
-  context "A model with no source_file_options setting" do
-    setup do
-      rebuild_model :styles => { :large => "300x300>",
-                                 :medium => "100x100",
-                                 :thumb => ["32x32#", :gif] },
-                    :default_style => :medium,
-                    :url => "/:attachment/:class/:style/:id/:basename.:extension",
-                    :path => ":rails_root/tmp/:attachment/:class/:style/:id/:basename.:extension"
-      @dummy     = Dummy.new
-    end
-
-    should "have its definition return nil when asked about source_file_options" do
-      assert ! Dummy.attachment_definitions[:avatar][:source_file_options]
-    end
-
-    context "redefined to have source_file_options setting" do
-      setup do
-        rebuild_model :styles => { :large => "300x300>",
-                                   :medium => "100x100",
-                                   :thumb => ["32x32#", :gif] },
-                      :source_file_options => "-density 400",
-                      :default_style => :medium,
-                      :url => "/:attachment/:class/:style/:id/:basename.:extension",
-                      :path => ":rails_root/tmp/:attachment/:class/:style/:id/:basename.:extension"
-      end
-
-      should "have its definition return source_file_options value when asked about source_file_options" do
-        assert_equal "-density 400", Dummy.attachment_definitions[:avatar][:source_file_options]
-      end
-    end
-  end
-
   [000,002,022].each do |umask|
     context "when the umask is #{umask}" do
       setup do
@@ -412,7 +348,7 @@ class IntegrationTest < Test::Unit::TestCase
       Dummy.validates_attachment_presence :avatar
       @d2 = Dummy.find(@dummy.id)
       @d2.avatar = @file
-      assert   @d2.valid?, @d2.errors.full_messages.inspect
+      assert  @d2.valid?, @d2.errors.full_messages.inspect
       @d2.avatar = @bad_file
       assert ! @d2.valid?
     end

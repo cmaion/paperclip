@@ -50,6 +50,37 @@ class AttachmentContentTypeValidatorTest < Test::Unit::TestCase
     end
   end
 
+  context "with a failing validation" do
+    setup do
+      build_validator :content_type => "image/png", :allow_nil => false
+      @dummy.stubs(:avatar_content_type => nil)
+      @validator.validate(@dummy)
+    end
+
+    should "add error to the base object" do
+      assert @dummy.errors[:avatar].present?,
+        "Error not added to base attribute"
+    end
+
+    should "add error to base object as a string" do
+      assert_kind_of String, @dummy.errors[:avatar].first,
+        "Error added to base attribute as something other than a String"
+    end
+  end
+
+  context "with a successful validation" do
+    setup do
+      build_validator :content_type => "image/png", :allow_nil => false
+      @dummy.stubs(:avatar_content_type => "image/png")
+      @validator.validate(@dummy)
+    end
+
+    should "not add error to the base object" do
+      assert @dummy.errors[:avatar].blank?,
+        "Error was added to base attribute"
+    end
+  end
+
   context "with :allow_blank option" do
     context "as true" do
       setup do
