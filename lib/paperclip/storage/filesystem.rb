@@ -51,7 +51,7 @@ module Paperclip
               end
             end
           end
-          unless @options[:override_file_permissions] == false
+          unless (@options[:override_file_permissions] == false) || (@options[:"override_#{style_name}_file_permissions"] == false)
             resolved_chmod = (@options[:override_file_permissions] &~ 0111) || (0666 &~ File.umask)
             FileUtils.chmod( resolved_chmod, path(style_name) )
           end
