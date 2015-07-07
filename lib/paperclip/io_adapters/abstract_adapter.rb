@@ -5,7 +5,8 @@ module Paperclip
     OS_RESTRICTED_CHARACTERS = %r{[/:]}
 
     attr_reader :content_type, :original_filename, :size
-    delegate :close, :closed?, :eof?, :path, :rewind, :unlink, :to => :@tempfile
+    delegate :binmode, :binmode?, :close, :close!, :closed?, :eof?, :path, :rewind, :unlink, :to => :@tempfile
+    alias :length :size
 
     def fingerprint
       @fingerprint ||= Digest::MD5.file(path).to_s
@@ -24,6 +25,7 @@ module Paperclip
     end
 
     def original_filename=(new_filename)
+      return unless new_filename
       @original_filename = new_filename.gsub(OS_RESTRICTED_CHARACTERS, "_")
     end
 
@@ -38,7 +40,7 @@ module Paperclip
     private
 
     def destination
-      @destination ||= TempfileFactory.new.generate(original_filename)
+      @destination ||= TempfileFactory.new.generate(@original_filename.to_s)
     end
 
     def copy_to_tempfile(src)
