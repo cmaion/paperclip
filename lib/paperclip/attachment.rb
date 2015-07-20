@@ -535,7 +535,10 @@ module Paperclip
         log("An error was received while processing: #{e.inspect}")
         (@errors[:processing] ||= []) << e.message if @options[:whiny]
       ensure
-        unlink_files(intermediate_files)
+        if intermediate_files
+          intermediate_files.pop # Don't unlink the last generated file
+          unlink_files(intermediate_files) if intermediate_files.present?
+        end
       end
     end
 

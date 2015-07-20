@@ -50,12 +50,12 @@ module Paperclip
                 new_file.write(chunk)
               end
             end
+            file.rewind
           end
           unless (@options[:override_file_permissions] == false) || (@options[:"override_#{style_name}_file_permissions"] == false)
             resolved_chmod = (@options[:override_file_permissions] &~ 0111) || (0666 &~ File.umask)
             FileUtils.chmod( resolved_chmod, path(style_name) )
           end
-          file.rewind
         end
 
         after_flush_writes # allows attachment to clean up temp files
